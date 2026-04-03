@@ -1,5 +1,6 @@
 import streamlit as st
 import plotly.express as px
+import plotly.graph_objects as go
 from drive_io import *
 from historico import construir_historico
 
@@ -14,6 +15,16 @@ FOLDER_INPUT = "1yeVBoN3fS6FrKttSWygTHp0AiXDkUhzI"
 FOLDER_REPORTES = "1LP5pK36K-GkJ0Mn1lY-Q21jO0lMzxOLy"
 FOLDER_CONFIG = "1RuywZBTKi_aJAEks4kgtveRUPqBvPYAE"
 FOLDER_HISTORICO = "1EF1iLR9jIA9tc9Xd_GrnnlnxI4sXVMFN"
+
+# -----------------------------
+# HELPERS
+# -----------------------------
+def color_pct(p):
+    if p > 70:
+        return "green"
+    elif p >= 60:
+        return "orange"
+    return "red"
 
 # -----------------------------
 # CARGA DATOS
@@ -54,43 +65,62 @@ tab1, tab2, tab3 = st.tabs([
 ])
 
 # =========================================================
-# 📁 TAB 1 — REPORTE MENSUAL (NUEVO PRO)
+# 📁 TAB 1 — REPORTE MENSUAL
 # =========================================================
 with tab1:
 
     st.header("📁 Reporte mensual")
 
     meses = sorted([r["mes"] for r in reportes_data])
-
     mes_sel = st.selectbox("Seleccionar mes", meses)
 
     data = next(r for r in reportes_data if r["mes"] == mes_sel)
 
     st.subheader(f"Resumen {mes_sel}")
 
-    # -----------------------------
-    # MÉTRICAS GENERALES
-    # -----------------------------
-    col1, col2, col3 = st.columns(3)
-
-    total_ahorro = sum(data["ahorro_real"].values())
-
-    col1.metric("💰 Ahorro total", f"${total_ahorro:,.0f}")
-
-    vianda = data.get("vianda_por_pibe", 0)
-    calentada = data.get("calentada_por_pibe", 0)
-
-    col2.metric("🍱 Vianda por pibe", f"${vianda:,.0f}")
-    col3.metric("🔥 Calentada por pibe", f"${calentada:,.0f}")
-
-    st.divider()
+    familias = sorted(data["ahorro_real"].keys())
 
     # -----------------------------
-    # POR FAMILIA
+    # GASTO COMPRAS
     # -----------------------------
-    st.subheader("👨‍👩‍👧‍👦 Ahorro por familia")
+    st.markdown("### 🛒 Gasto de compras")
 
-    familias = list(data["ahorro_real"].keys())
+    cols = st.columns(len(familias) + 1)
+    total_compras = 0
+
+    for i, f in enumerate(familias):
+        val = data["compras"].get(f, 0)
+        total_compras += val
+        cols[i].metric(f, f"${val:,.0f}")
+
+    cols[-1].metric("Total", f"${total_compras:,.0f}")
+
+    # -----------------------------
+    # COSTO PIBE (REEMPLAZA AHORRO TOTAL)
+    # -----------------------------
+    st.markdown("### 🍱 Costo por pibe")
+
+    vianda = data["vianda_por_pibe"]
+    calentada = data["calentada_por_pibe"]
+    total_pibe = vianda + calentada
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Vianda", f"${vianda:,.0f}")
+    c2.metric("Calentada", f"${calentada:,.0f}")
+    c3.metric("Total", f"${total_pibe:,.0f}")
+
+    # -----------------------------
+    # TRANSFERENCIAS
+    # -----------------------------
+    st.markdown("### 🔁 Transferencias")
+
+    for t in data["transferencias"]:
+        st.write(f"{t[0]} → {t[1]}: ${t[2]:,.0f}")
+
+    # -----------------------------
+    # AHORRO POR FAMILIA
+    # -----------------------------
+    st.markdown("### 💰 Ahorro por familia")
 
     cols = st.columns(len(familias))
 
@@ -98,30 +128,29 @@ with tab1:
         ahorro = data["ahorro_real"][f]
         pct = data["pct_ahorro"][f] * 100
 
-        cols[i].metric(
-            label=f,
-            value=f"${ahorro:,.0f}",
-            delta=f"{pct:.2f}%"
-        )
-
-    st.divider()
+        cols[i].markdown(f"""
+        **{f}**  
+        ${ahorro:,.0f}  
+        <span style="color:{color_pct(pct)};font-weight:bold;">
+        {pct:.2f}%
+        </span>
+        """, unsafe_allow_html=True)
 
     # -----------------------------
-    # GRÁFICO DISTRIBUCIÓN
+    # GRAFICO UTIL → % AHORRO
     # -----------------------------
-    st.subheader("📊 Distribución del ahorro")
+    st.markdown("### 📊 % ahorro por familia")
 
-    df_bar = px.data.tips()  # placeholder limpio
-
-    df_bar = {
-        "familia": list(data["ahorro_real"].keys()),
-        "ahorro": list(data["ahorro_real"].values())
+    df_plot = {
+        "familia": familias,
+        "pct": [data["pct_ahorro"][f] * 100 for f in familias]
     }
 
-    fig = px.bar(df_bar, x="familia", y="ahorro", text_auto=True)
+    fig = px.bar(df_plot, x="familia", y="pct", text_auto=True)
+    fig.update_traces(marker_color=[color_pct(v) for v in df_plot["pct"]])
+    fig.update_yaxes(ticksuffix="%")
 
     st.plotly_chart(fig, use_container_width=True)
-
 
 # =========================================================
 # 📊 TAB 2 — DASHBOARD
@@ -144,14 +173,33 @@ with tab2:
         fig2 = px.line(df_f, x="mes", y="acum_total", title="Acumulado")
         st.plotly_chart(fig2, use_container_width=True)
 
-    # NUEVO → barras %
+    # -----------------------------
+    # % AHORRO CON PROMEDIO
+    # -----------------------------
     st.subheader("% ahorro mensual")
 
-    fig3 = px.bar(df_f, x="mes", y="pct", text_auto=True)
+    avg = df_f["pct"].mean()
+
+    fig3 = go.Figure()
+
+    fig3.add_trace(go.Bar(
+        x=df_f["mes"],
+        y=df_f["pct"],
+        text=[f"{v:.2f}%" for v in df_f["pct"]],
+        marker_color=[color_pct(v) for v in df_f["pct"]]
+    ))
+
+    fig3.add_trace(go.Scatter(
+        x=df_f["mes"],
+        y=[avg] * len(df_f),
+        mode="lines",
+        name=f"Promedio {avg:.2f}%",
+        line=dict(dash="dash")
+    ))
+
     fig3.update_yaxes(ticksuffix="%")
 
     st.plotly_chart(fig3, use_container_width=True)
-
 
 # =========================================================
 # 📈 TAB 3 — COMPARATIVOS
@@ -166,7 +214,7 @@ with tab3:
 
     df_f = df[df["familia"] == familia]
 
-    # ✔ CORRECTO: comparar por %
+    # LINEAS POR AÑO
     fig = px.line(
         df_f,
         x="mes_num",
@@ -178,3 +226,17 @@ with tab3:
     fig.update_yaxes(ticksuffix="%")
 
     st.plotly_chart(fig, use_container_width=True)
+
+    # BARRAS POR AÑO
+    fig2 = px.bar(
+        df_f,
+        x="mes_num",
+        y="pct",
+        color="anio",
+        barmode="group",
+        text_auto=True
+    )
+
+    fig2.update_yaxes(ticksuffix="%")
+
+    st.plotly_chart(fig2, use_container_width=True)
