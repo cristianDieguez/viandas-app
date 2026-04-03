@@ -16,6 +16,11 @@ FOLDER_CONFIG = "1RuywZBTKi_aJAEks4kgtveRUPqBvPYAE"
 FOLDER_HISTORICO = "1EF1iLR9jIA9tc9Xd_GrnnlnxI4sXVMFN"
 
 # -----------------------------
+# DEBUG INICIO
+# -----------------------------
+st.write("FOLDER_REPORTES:", FOLDER_REPORTES)
+
+# -----------------------------
 # CARGA SEGURA DE DATOS
 # -----------------------------
 reportes_data = []
@@ -24,7 +29,9 @@ files = []
 try:
     files = listar_archivos(FOLDER_REPORTES)
 
-    st.write("DEBUG archivos encontrados:", files)
+    st.write("FILES RAW:")
+    for f in files:
+        st.write(f)
 
     for f in files:
         name = f.get("name", "")
@@ -35,7 +42,6 @@ try:
         try:
             data = leer_json(f["id"])
 
-            # VALIDACIÓN REAL (NO por nombre)
             if "mes" not in data or "ahorro_real" not in data:
                 continue
 
@@ -52,7 +58,9 @@ if not reportes_data:
     st.warning("No hay reportes válidos en la carpeta")
     st.stop()
 
-# construir histórico
+# -----------------------------
+# CONSTRUIR HISTÓRICO
+# -----------------------------
 df = construir_historico(reportes_data)
 
 # -----------------------------
@@ -89,7 +97,6 @@ with tab1:
     fig3.update_yaxes(ticksuffix="%")
     st.plotly_chart(fig3, use_container_width=True)
 
-
 # =============================
 # TAB 2
 # =============================
@@ -124,7 +131,6 @@ with tab2:
     )
 
     st.plotly_chart(fig2, use_container_width=True)
-
 
 # =============================
 # TAB 3
