@@ -16,12 +16,15 @@ FOLDER_CONFIG = "1RuywZBTKi_aJAEks4kgtveRUPqBvPYAE"
 FOLDER_HISTORICO = "1EF1iLR9jIA9tc9Xd_GrnnlnxI4sXVMFN"
 
 # -----------------------------
-# CARGA GLOBAL (IMPORTANTE)
+# CARGA SEGURA DE DATOS
 # -----------------------------
 reportes_data = []
+files = []
 
 try:
     files = listar_archivos(FOLDER_REPORTES)
+
+    st.write("DEBUG archivos encontrados:", files)
 
     for f in files:
         name = f.get("name", "")
@@ -29,13 +32,15 @@ try:
         if not name.endswith(".json"):
             continue
 
-        # evitar archivos basura
-        if not name[:4].isdigit():
-            continue
-
         try:
             data = leer_json(f["id"])
+
+            # VALIDACIÓN REAL (NO por nombre)
+            if "mes" not in data or "ahorro_real" not in data:
+                continue
+
             reportes_data.append(data)
+
         except Exception as e:
             st.warning(f"Error leyendo {name}")
 
@@ -43,16 +48,15 @@ except Exception as e:
     st.error("Error conectando con Google Drive")
     st.stop()
 
-# validación global
 if not reportes_data:
-    st.warning("No hay reportes disponibles")
+    st.warning("No hay reportes válidos en la carpeta")
     st.stop()
 
-# construir df UNA VEZ
+# construir histórico
 df = construir_historico(reportes_data)
 
 # -----------------------------
-# TABs
+# TABS
 # -----------------------------
 tab1, tab2, tab3 = st.tabs([
     "📊 Dashboard",
@@ -61,7 +65,7 @@ tab1, tab2, tab3 = st.tabs([
 ])
 
 # =============================
-# TAB 1 - DASHBOARD
+# TAB 1
 # =============================
 with tab1:
 
@@ -87,7 +91,7 @@ with tab1:
 
 
 # =============================
-# TAB 2 - COMPARATIVOS
+# TAB 2
 # =============================
 with tab2:
 
@@ -123,7 +127,7 @@ with tab2:
 
 
 # =============================
-# TAB 3 - REPORTES
+# TAB 3
 # =============================
 with tab3:
 
@@ -137,10 +141,16 @@ with tab3:
         if not name.endswith(".json"):
             continue
 
-        if not name[:4].isdigit():
-            continue
+        try:
+            data = leer_json(f["id"])
 
-        meses.append(name.replace(".json", ""))
+            if "mes" not in data:
+                continue
+
+            meses.append(data["mes"])
+
+        except:
+            continue
 
     if not meses:
         st.warning("No hay reportes disponibles")
@@ -163,5 +173,5 @@ with tab3:
             st.subheader("Detalle JSON")
             st.json(data)
 
-        except Exception as e:
-            st.error("Error leyendo el reporte seleccionado")
+        except:
+            st.error("Error leyendo el reporte")
