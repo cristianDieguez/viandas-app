@@ -20,7 +20,10 @@ def get_drive_service():
 def listar_archivos(folder_id):
     service = get_drive_service()
     query = f"'{folder_id}' in parents"
-    results = service.files().list(q=query).execute()
+    results = service.files().list(
+        q=query,
+        fields="files(id, name)"
+    ).execute()
     return results.get("files", [])
 
 
