@@ -104,7 +104,7 @@ with tab1:
 
     st.divider()
 
-    # TRANSFERENCIAS (FIX GRANDE)
+    # TRANSFERENCIAS
     st.subheader("🔁 Transferencias")
 
     cols = st.columns(len(data["transferencias"]))
@@ -125,7 +125,7 @@ with tab1:
 
     st.divider()
 
-    # AHORRO (FIX BADGE)
+    # AHORRO (FIX NOMBRE + BADGE)
     st.subheader("💰 Ahorro por familia")
 
     cols = st.columns(len(familias))
@@ -135,7 +135,8 @@ with tab1:
         pct = data["pct_ahorro"][f] * 100
 
         cols[i].markdown(f"""
-        <div style="font-size:26px;font-weight:bold">${ahorro:,.0f}</div>
+        <div style="font-size:18px;color:#9ca3af;margin-bottom:4px">{f}</div>
+        <div style="font-size:28px;font-weight:bold">${ahorro:,.0f}</div>
         <div style="
             display:inline-block;
             padding:6px 12px;
@@ -151,12 +152,11 @@ with tab1:
     st.divider()
 
     # =============================
-    # ACUMULADOS (NUEVO)
+    # ACUMULADOS (FIX NOMBRE)
     # =============================
-    st.subheader("📊 Acumulados")
+    st.subheader("💰 Ahorro acumulado")
 
     df_fam = df.copy()
-
     df_fam = df_fam[df_fam["mes"] <= mes_sel]
 
     cols1 = st.columns(len(familias))
@@ -171,75 +171,3 @@ with tab1:
 
         cols1[i].metric(f"{f} (Año)", f"${anual:,.0f}")
         cols2[i].metric(f"{f} (Total)", f"${total:,.0f}")
-
-# =========================================================
-# TAB 2 (sin romper nada, solo visual)
-# =========================================================
-with tab2:
-
-    familia = st.selectbox("Familia", df["familia"].unique())
-    df_f = df[df["familia"] == familia]
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.plotly_chart(px.line(df_f, x="mes", y="ahorro"), use_container_width=True)
-
-    with col2:
-        st.plotly_chart(px.line(df_f, x="mes", y="acum_total"), use_container_width=True)
-
-    st.subheader("% ahorro mensual")
-
-    avg = df_f["pct"].mean()
-
-    fig = go.Figure()
-
-    fig.add_trace(go.Bar(
-        x=df_f["mes"],
-        y=df_f["pct"],
-        text=[f"{v:.2f}%" for v in df_f["pct"]],
-        textposition="outside",
-        textfont=dict(size=16),
-        marker_color=[color_pct(v) for v in df_f["pct"]],
-        name=""
-    ))
-
-    fig.add_trace(go.Scatter(
-        x=df_f["mes"],
-        y=[avg]*len(df_f),
-        mode="lines",
-        name=f"Promedio {avg:.2f}%"
-    ))
-
-    fig.update_yaxes(ticksuffix="%")
-
-    st.plotly_chart(fig, use_container_width=True)
-
-# =========================================================
-# TAB 3
-# =========================================================
-with tab3:
-
-    df["mes_num"] = df["mes"].dt.month
-
-    familia = st.selectbox("Familia", df["familia"].unique(), key="comp")
-    df_f = df[df["familia"] == familia]
-
-    st.plotly_chart(
-        px.line(df_f, x="mes_num", y="pct", color="anio"),
-        use_container_width=True
-    )
-
-    fig2 = go.Figure()
-
-    fig2.add_trace(go.Bar(
-        x=df_f["mes_num"],
-        y=df_f["pct"],
-        text=[f"{v:.2f}%" for v in df_f["pct"]],
-        textposition="outside",
-        textfont=dict(size=16)
-    ))
-
-    fig2.update_yaxes(ticksuffix="%")
-
-    st.plotly_chart(fig2, use_container_width=True)
