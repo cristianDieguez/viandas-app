@@ -16,68 +16,119 @@ FOLDER_CONFIG = "1RuywZBTKi_aJAEks4kgtveRUPqBvPYAE"
 FOLDER_HISTORICO = "1EF1iLR9jIA9tc9Xd_GrnnlnxI4sXVMFN"
 
 # -----------------------------
-# DEBUG INICIO
-# -----------------------------
-st.write("FOLDER_REPORTES:", FOLDER_REPORTES)
-
-# -----------------------------
-# CARGA SEGURA DE DATOS
+# CARGA DATOS
 # -----------------------------
 reportes_data = []
-files = []
+files = listar_archivos(FOLDER_REPORTES)
 
-try:
-    files = listar_archivos(FOLDER_REPORTES)
+for f in files:
+    name = f.get("name", "")
 
-    st.write("FILES RAW:")
-    for f in files:
-        st.write(f)
+    if not name.endswith(".json"):
+        continue
 
-    for f in files:
-        name = f.get("name", "")
+    try:
+        data = leer_json(f["id"])
 
-        if not name.endswith(".json"):
+        if "mes" not in data or "ahorro_real" not in data:
             continue
 
-        try:
-            data = leer_json(f["id"])
+        reportes_data.append(data)
 
-            if "mes" not in data or "ahorro_real" not in data:
-                continue
-
-            reportes_data.append(data)
-
-        except Exception as e:
-            st.warning(f"Error leyendo {name}")
-
-except Exception as e:
-    st.error("Error conectando con Google Drive")
-    st.stop()
+    except:
+        continue
 
 if not reportes_data:
-    st.warning("No hay reportes válidos en la carpeta")
+    st.warning("No hay reportes válidos")
     st.stop()
 
-# -----------------------------
-# CONSTRUIR HISTÓRICO
-# -----------------------------
 df = construir_historico(reportes_data)
 
 # -----------------------------
 # TABS
 # -----------------------------
 tab1, tab2, tab3 = st.tabs([
+    "📁 Reporte mensual",
     "📊 Dashboard",
-    "📈 Comparativos",
-    "📁 Reportes"
+    "📈 Comparativos"
 ])
 
-# =============================
-# TAB 1
-# =============================
+# =========================================================
+# 📁 TAB 1 — REPORTE MENSUAL (NUEVO PRO)
+# =========================================================
 with tab1:
 
-    st.header("Evolución de ahorro")
+    st.header("📁 Reporte mensual")
+
+    meses = sorted([r["mes"] for r in reportes_data])
+
+    mes_sel = st.selectbox("Seleccionar mes", meses)
+
+    data = next(r for r in reportes_data if r["mes"] == mes_sel)
+
+    st.subheader(f"Resumen {mes_sel}")
+
+    # -----------------------------
+    # MÉTRICAS GENERALES
+    # -----------------------------
+    col1, col2, col3 = st.columns(3)
+
+    total_ahorro = sum(data["ahorro_real"].values())
+
+    col1.metric("💰 Ahorro total", f"${total_ahorro:,.0f}")
+
+    vianda = data.get("vianda_por_pibe", 0)
+    calentada = data.get("calentada_por_pibe", 0)
+
+    col2.metric("🍱 Vianda por pibe", f"${vianda:,.0f}")
+    col3.metric("🔥 Calentada por pibe", f"${calentada:,.0f}")
+
+    st.divider()
+
+    # -----------------------------
+    # POR FAMILIA
+    # -----------------------------
+    st.subheader("👨‍👩‍👧‍👦 Ahorro por familia")
+
+    familias = list(data["ahorro_real"].keys())
+
+    cols = st.columns(len(familias))
+
+    for i, f in enumerate(familias):
+        ahorro = data["ahorro_real"][f]
+        pct = data["pct_ahorro"][f] * 100
+
+        cols[i].metric(
+            label=f,
+            value=f"${ahorro:,.0f}",
+            delta=f"{pct:.2f}%"
+        )
+
+    st.divider()
+
+    # -----------------------------
+    # GRÁFICO DISTRIBUCIÓN
+    # -----------------------------
+    st.subheader("📊 Distribución del ahorro")
+
+    df_bar = px.data.tips()  # placeholder limpio
+
+    df_bar = {
+        "familia": list(data["ahorro_real"].keys()),
+        "ahorro": list(data["ahorro_real"].values())
+    }
+
+    fig = px.bar(df_bar, x="familia", y="ahorro", text_auto=True)
+
+    st.plotly_chart(fig, use_container_width=True)
+
+
+# =========================================================
+# 📊 TAB 2 — DASHBOARD
+# =========================================================
+with tab2:
+
+    st.header("Evolución")
 
     familia = st.selectbox("Familia", df["familia"].unique())
 
@@ -90,94 +141,40 @@ with tab1:
         st.plotly_chart(fig, use_container_width=True)
 
     with col2:
-        fig2 = px.line(df_f, x="mes", y="acum_total", title="Ahorro acumulado")
+        fig2 = px.line(df_f, x="mes", y="acum_total", title="Acumulado")
         st.plotly_chart(fig2, use_container_width=True)
 
-    fig3 = px.line(df_f, x="mes", y="pct", title="% ahorro mensual")
+    # NUEVO → barras %
+    st.subheader("% ahorro mensual")
+
+    fig3 = px.bar(df_f, x="mes", y="pct", text_auto=True)
     fig3.update_yaxes(ticksuffix="%")
+
     st.plotly_chart(fig3, use_container_width=True)
 
-# =============================
-# TAB 2
-# =============================
-with tab2:
 
-    st.header("Comparativo entre años")
+# =========================================================
+# 📈 TAB 3 — COMPARATIVOS
+# =========================================================
+with tab3:
+
+    st.header("Comparativo anual")
 
     df["mes_num"] = df["mes"].dt.month
 
-    familia = st.selectbox("Familia (comparativo)", df["familia"].unique(), key="comp")
+    familia = st.selectbox("Familia", df["familia"].unique(), key="comp")
 
     df_f = df[df["familia"] == familia]
 
+    # ✔ CORRECTO: comparar por %
     fig = px.line(
         df_f,
         x="mes_num",
-        y="ahorro",
+        y="pct",
         color="anio",
-        title="Mismo mes en distintos años"
+        title="Comparación por % de ahorro"
     )
+
+    fig.update_yaxes(ticksuffix="%")
 
     st.plotly_chart(fig, use_container_width=True)
-
-    st.subheader("Acumulado anual")
-
-    fig2 = px.line(
-        df_f,
-        x="mes",
-        y="acum_anual",
-        color="anio",
-        title="Acumulado por año"
-    )
-
-    st.plotly_chart(fig2, use_container_width=True)
-
-# =============================
-# TAB 3
-# =============================
-with tab3:
-
-    st.header("Consulta de reportes")
-
-    meses = []
-
-    for f in files:
-        name = f.get("name", "")
-
-        if not name.endswith(".json"):
-            continue
-
-        try:
-            data = leer_json(f["id"])
-
-            if "mes" not in data:
-                continue
-
-            meses.append(data["mes"])
-
-        except:
-            continue
-
-    if not meses:
-        st.warning("No hay reportes disponibles")
-        st.stop()
-
-    mes_sel = st.selectbox("Seleccionar mes", sorted(meses))
-
-    file_id = buscar_archivo(f"{mes_sel}.json", FOLDER_REPORTES)
-
-    if file_id:
-        try:
-            data = leer_json(file_id)
-
-            st.subheader("Ahorro del mes")
-
-            for f, v in data["ahorro_real"].items():
-                pct = data["pct_ahorro"][f] * 100
-                st.write(f"**{f}**: ${v:,.2f} ({pct:.2f}%)")
-
-            st.subheader("Detalle JSON")
-            st.json(data)
-
-        except:
-            st.error("Error leyendo el reporte")
