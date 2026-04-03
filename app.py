@@ -33,6 +33,9 @@ with tab1:
 
     files = listar_archivos(FOLDER_REPORTES)
 
+    st.write("DEBUG archivos en carpeta:")
+    st.write(files)
+
     reportes_data = []
 
     for f in files:
