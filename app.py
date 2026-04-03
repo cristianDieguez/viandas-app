@@ -33,6 +33,12 @@ def arrow_pct(p):
         return "–"
     return "↓"
 
+def label(text):
+    return f'<div style="font-size:18px;color:#9ca3af">{text}</div>'
+
+def value(text):
+    return f'<div style="font-size:26px;font-weight:bold">{text}</div>'
+
 # -----------------------------
 # DATA
 # -----------------------------
@@ -65,7 +71,7 @@ tab1, tab2, tab3 = st.tabs([
 ])
 
 # =========================================================
-# TAB 1 — REPORTE (NO TOCADO)
+# TAB 1
 # =========================================================
 with tab1:
 
@@ -77,31 +83,49 @@ with tab1:
 
     st.divider()
 
+    # -----------------------------
+    # COMPRAS
+    # -----------------------------
     st.subheader("🛒 Gasto de compras")
-    cols = st.columns(len(familias) + 1)
 
+    cols = st.columns(len(familias) + 1)
     total = 0
+
     for i, f in enumerate(familias):
         val = data["compras"].get(f, 0)
         total += val
-        cols[i].metric(f, f"${val:,.0f}")
 
-    cols[-1].metric("Total", f"${total:,.0f}")
+        cols[i].markdown(
+            label(f) + value(f"${val:,.0f}"),
+            unsafe_allow_html=True
+        )
+
+    cols[-1].markdown(
+        label("Total") + value(f"${total:,.0f}"),
+        unsafe_allow_html=True
+    )
 
     st.divider()
 
+    # -----------------------------
+    # COSTO
+    # -----------------------------
     st.subheader("🍱 Costo por pibe")
 
     vianda = data["vianda_por_pibe"]
     calentada = data["calentada_por_pibe"]
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("Vianda", f"${vianda:,.0f}")
-    c2.metric("Calentada", f"${calentada:,.0f}")
-    c3.metric("Total", f"${(vianda+calentada):,.0f}")
+
+    c1.markdown(label("Vianda") + value(f"${vianda:,.0f}"), unsafe_allow_html=True)
+    c2.markdown(label("Calentada") + value(f"${calentada:,.0f}"), unsafe_allow_html=True)
+    c3.markdown(label("Total") + value(f"${(vianda+calentada):,.0f}"), unsafe_allow_html=True)
 
     st.divider()
 
+    # -----------------------------
+    # TRANSFERENCIAS
+    # -----------------------------
     st.subheader("🔁 Transferencias")
 
     cols = st.columns(len(data["transferencias"]))
@@ -122,6 +146,9 @@ with tab1:
 
     st.divider()
 
+    # -----------------------------
+    # AHORRO
+    # -----------------------------
     st.subheader("💰 Ahorro por familia")
 
     cols = st.columns(len(familias))
@@ -131,7 +158,7 @@ with tab1:
         pct = data["pct_ahorro"][f] * 100
 
         cols[i].markdown(f"""
-        <div style="font-size:18px;color:#9ca3af">{f}</div>
+        {label(f)}
         <div style="font-size:28px;font-weight:bold">${ahorro:,.0f}</div>
         <div style="
             display:inline-block;
@@ -146,6 +173,9 @@ with tab1:
 
     st.divider()
 
+    # -----------------------------
+    # ACUMULADO
+    # -----------------------------
     st.subheader("💰 Ahorro acumulado")
 
     df_fam = df[df["mes"] <= mes_sel]
@@ -160,11 +190,18 @@ with tab1:
         anual = df_tmp[df_tmp["anio"] == int(mes_sel[:4])]["ahorro"].sum()
         total = df_tmp["ahorro"].sum()
 
-        cols1[i].metric(f"{f} (Año)", f"${anual:,.0f}")
-        cols2[i].metric(f"{f} (Total)", f"${total:,.0f}")
+        cols1[i].markdown(
+            label(f"{f} (Año)") + value(f"${anual:,.0f}"),
+            unsafe_allow_html=True
+        )
+
+        cols2[i].markdown(
+            label(f"{f} (Total)") + value(f"${total:,.0f}"),
+            unsafe_allow_html=True
+        )
 
 # =========================================================
-# TAB 2 — DASHBOARD (RESTAURADO)
+# TAB 2
 # =========================================================
 with tab2:
 
@@ -209,7 +246,7 @@ with tab2:
     st.plotly_chart(fig, use_container_width=True)
 
 # =========================================================
-# TAB 3 — COMPARATIVOS (RESTAURADO)
+# TAB 3
 # =========================================================
 with tab3:
 
