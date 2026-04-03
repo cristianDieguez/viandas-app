@@ -19,10 +19,14 @@ def get_drive_service():
 
 def listar_archivos(folder_id):
     service = get_drive_service()
+
     results = service.files().list(
-        pageSize=5,
-        fields="files(id, name)"
+        q=f"'{folder_id}' in parents and trashed = false",
+        fields="files(id, name)",
+        supportsAllDrives=True,
+        includeItemsFromAllDrives=True
     ).execute()
+
     return results.get("files", [])
 
 
