@@ -32,16 +32,21 @@ with tab1:
     st.header("Evolución de ahorro")
 
     files = listar_archivos(FOLDER_REPORTES)
-
-    st.write("DEBUG archivos en carpeta:")
-    st.write(files)
-
+    
+    st.write("DEBUG archivos en carpeta:", files)
+    
     reportes_data = []
-
+    
     for f in files:
-        if f["name"].endswith(".json"):
-            data = leer_json(f["id"])
-            reportes_data.append(data)
+        if not f["name"].endswith(".json"):
+            continue
+    
+        # evitar archivos que no son reportes mensuales
+        if not f["name"][:4].isdigit():
+            continue
+    
+        data = leer_json(f["id"])
+        reportes_data.append(data)
 
     if not reportes_data:
         st.warning("No hay reportes disponibles")
