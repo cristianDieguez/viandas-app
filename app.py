@@ -59,7 +59,14 @@ if not reportes_data:
     st.warning("No hay reportes válidos")
     st.stop()
 
+# ordenar reportes por mes
+reportes_data = sorted(reportes_data, key=lambda x: x["mes"])
 df = construir_historico(reportes_data)
+
+# asegurar tipo y campos útiles
+df["anio"] = df["mes"].dt.year
+df["mes_num"] = df["mes"].dt.month
+df["anio_str"] = df["anio"].astype(str)
 
 # -----------------------------
 # TABS
@@ -71,12 +78,12 @@ tab1, tab2, tab3 = st.tabs([
 ])
 
 # =========================================================
-# TAB 1 — REPORTE (NO TOCADO)
+# TAB 1 — REPORTE
 # =========================================================
 with tab1:
 
-    meses = sorted([r["mes"] for r in reportes_data])
-    mes_sel = st.selectbox("Seleccionar mes", meses)
+    meses = [r["mes"] for r in reportes_data]
+    mes_sel = st.selectbox("Seleccionar mes", meses, index=len(meses) - 1)
 
     data = next(r for r in reportes_data if r["mes"] == mes_sel)
     familias = sorted(data["ahorro_real"].keys())
@@ -186,7 +193,7 @@ with tab1:
         )
 
 # =========================================================
-# TAB 2 — DASHBOARD (MEJORADO)
+# TAB 2 — DASHBOARD
 # =========================================================
 with tab2:
 
@@ -200,19 +207,19 @@ with tab2:
     df_f = df[
         (df["familia"] == familia) &
         (df["anio"].isin(anios_sel))
-    ]
+    ].copy()
 
     col1, col2 = st.columns(2)
 
     with col1:
         st.plotly_chart(
-            px.line(df_f, x="mes", y="ahorro", color="anio"),
+            px.line(df_f, x="mes", y="ahorro", color="anio_str"),
             use_container_width=True
         )
 
     with col2:
         st.plotly_chart(
-            px.line(df_f, x="mes", y="acum_total", color="anio"),
+            px.line(df_f, x="mes", y="acum_total", color="anio_str"),
             use_container_width=True
         )
 
@@ -231,12 +238,13 @@ with tab2:
             text=[f"{v:.2f}%" for v in df_tmp["pct"]],
             textposition="outside",
             textfont=dict(size=14),
+            marker_color=[color_pct(v) for v in df_tmp["pct"]],
             name=str(anio)
         ))
 
     fig.add_trace(go.Scatter(
         x=df_f["mes"],
-        y=[avg]*len(df_f),
+        y=[avg] * len(df_f),
         mode="lines",
         name=f"Promedio {avg:.2f}%"
     ))
@@ -246,13 +254,11 @@ with tab2:
     st.plotly_chart(fig, use_container_width=True)
 
 # =========================================================
-# TAB 3 — COMPARATIVOS (MEJORADO)
+# TAB 3 — COMPARATIVOS
 # =========================================================
 with tab3:
 
     st.header("Comparativo anual")
-
-    df["mes_num"] = df["mes"].dt.month
 
     familia = st.selectbox("Familia", df["familia"].unique(), key="comp")
 
@@ -262,10 +268,10 @@ with tab3:
     df_f = df[
         (df["familia"] == familia) &
         (df["anio"].isin(anios_sel))
-    ]
+    ].copy()
 
     st.plotly_chart(
-        px.line(df_f, x="mes_num", y="pct", color="anio"),
+        px.line(df_f, x="mes_num", y="pct", color="anio_str"),
         use_container_width=True
     )
 
@@ -273,7 +279,7 @@ with tab3:
         df_f,
         x="mes_num",
         y="pct",
-        color="anio",
+        color="anio_str",
         barmode="group",
         text="pct"
     )
