@@ -71,7 +71,7 @@ tab1, tab2, tab3 = st.tabs([
 ])
 
 # =========================================================
-# TAB 1
+# TAB 1 — REPORTE (NO TOCADO)
 # =========================================================
 with tab1:
 
@@ -83,9 +83,6 @@ with tab1:
 
     st.divider()
 
-    # -----------------------------
-    # COMPRAS
-    # -----------------------------
     st.subheader("🛒 Gasto de compras")
 
     cols = st.columns(len(familias) + 1)
@@ -107,9 +104,6 @@ with tab1:
 
     st.divider()
 
-    # -----------------------------
-    # COSTO
-    # -----------------------------
     st.subheader("🍱 Costo por pibe")
 
     vianda = data["vianda_por_pibe"]
@@ -123,9 +117,6 @@ with tab1:
 
     st.divider()
 
-    # -----------------------------
-    # TRANSFERENCIAS
-    # -----------------------------
     st.subheader("🔁 Transferencias")
 
     cols = st.columns(len(data["transferencias"]))
@@ -146,9 +137,6 @@ with tab1:
 
     st.divider()
 
-    # -----------------------------
-    # AHORRO
-    # -----------------------------
     st.subheader("💰 Ahorro por familia")
 
     cols = st.columns(len(familias))
@@ -173,9 +161,6 @@ with tab1:
 
     st.divider()
 
-    # -----------------------------
-    # ACUMULADO
-    # -----------------------------
     st.subheader("💰 Ahorro acumulado")
 
     df_fam = df[df["mes"] <= mes_sel]
@@ -201,22 +186,35 @@ with tab1:
         )
 
 # =========================================================
-# TAB 2
+# TAB 2 — DASHBOARD (MEJORADO)
 # =========================================================
 with tab2:
 
     st.header("Evolución")
 
     familia = st.selectbox("Familia", df["familia"].unique())
-    df_f = df[df["familia"] == familia]
+
+    anios = sorted(df["anio"].unique())
+    anios_sel = st.multiselect("Seleccionar años", anios, default=anios)
+
+    df_f = df[
+        (df["familia"] == familia) &
+        (df["anio"].isin(anios_sel))
+    ]
 
     col1, col2 = st.columns(2)
 
     with col1:
-        st.plotly_chart(px.line(df_f, x="mes", y="ahorro"), use_container_width=True)
+        st.plotly_chart(
+            px.line(df_f, x="mes", y="ahorro", color="anio"),
+            use_container_width=True
+        )
 
     with col2:
-        st.plotly_chart(px.line(df_f, x="mes", y="acum_total"), use_container_width=True)
+        st.plotly_chart(
+            px.line(df_f, x="mes", y="acum_total", color="anio"),
+            use_container_width=True
+        )
 
     st.subheader("% ahorro mensual")
 
@@ -224,15 +222,17 @@ with tab2:
 
     fig = go.Figure()
 
-    fig.add_trace(go.Bar(
-        x=df_f["mes"],
-        y=df_f["pct"],
-        text=[f"{v:.2f}%" for v in df_f["pct"]],
-        textposition="outside",
-        textfont=dict(size=16),
-        marker_color=[color_pct(v) for v in df_f["pct"]],
-        name=""
-    ))
+    for anio in sorted(df_f["anio"].unique()):
+        df_tmp = df_f[df_f["anio"] == anio]
+
+        fig.add_trace(go.Bar(
+            x=df_tmp["mes"],
+            y=df_tmp["pct"],
+            text=[f"{v:.2f}%" for v in df_tmp["pct"]],
+            textposition="outside",
+            textfont=dict(size=14),
+            name=str(anio)
+        ))
 
     fig.add_trace(go.Scatter(
         x=df_f["mes"],
@@ -246,7 +246,7 @@ with tab2:
     st.plotly_chart(fig, use_container_width=True)
 
 # =========================================================
-# TAB 3
+# TAB 3 — COMPARATIVOS (MEJORADO)
 # =========================================================
 with tab3:
 
@@ -255,22 +255,33 @@ with tab3:
     df["mes_num"] = df["mes"].dt.month
 
     familia = st.selectbox("Familia", df["familia"].unique(), key="comp")
-    df_f = df[df["familia"] == familia]
+
+    anios = sorted(df["anio"].unique())
+    anios_sel = st.multiselect("Seleccionar años", anios, default=anios, key="comp_anios")
+
+    df_f = df[
+        (df["familia"] == familia) &
+        (df["anio"].isin(anios_sel))
+    ]
 
     st.plotly_chart(
         px.line(df_f, x="mes_num", y="pct", color="anio"),
         use_container_width=True
     )
 
-    fig2 = go.Figure()
+    fig2 = px.bar(
+        df_f,
+        x="mes_num",
+        y="pct",
+        color="anio",
+        barmode="group",
+        text="pct"
+    )
 
-    fig2.add_trace(go.Bar(
-        x=df_f["mes_num"],
-        y=df_f["pct"],
-        text=[f"{v:.2f}%" for v in df_f["pct"]],
-        textposition="outside",
-        textfont=dict(size=16)
-    ))
+    fig2.update_traces(
+        texttemplate="%{text:.2f}%",
+        textposition="outside"
+    )
 
     fig2.update_yaxes(ticksuffix="%")
 
